@@ -12,51 +12,50 @@
             justify-content: center; align-items: center;
             background: linear-gradient(to bottom, #FF416C, #8A2387); font-family: Arial, sans-serif;
         }
-        #video-flux {
-            width: 90%; max-width: 640px; background-color: black; border-radius: 12px;
+        /* Style de la zone d'affichage de la caméra */
+        #photo-flux {
+            width: 90%; max-width: 640px; height: auto; min-height: 360px;
+            background-color: black; border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: block;
         }
         #statut { color: white; font-weight: bold; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 20px; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <!-- Le PC affiche UNIQUEMENT la vidéo reçue -->
-    <video id="video-flux" autoplay playsinline></video>
-    <div id="statut">Écran PC : En attente du signal du téléphone...</div>
+    <!-- On utilise directement une zone d'image pour recevoir le flux sans blocage du navigateur -->
+    <img id="photo-flux" src="" alt="En attente du flux vidéo...">
+    
+    <div id="statut">Écran PC : Prêt. Cliquez n'importe où sur cet écran, puis lancez le téléphone...</div>
 
     <script>
         const firebaseConfig = { databaseURL: "https://firebaseio.com" };
         firebase.initializeApp(firebaseConfig);
         const base = firebase.database().ref("salon_logan");
 
-        // Le PC dit à la base qu'il est prêt et en attente
+        // Nettoyage de la base au démarrage du PC
         base.set({ commande: "attente", fluxData: "" });
 
-        const videoElem = document.getElementById('video-flux');
+        const imgElem = document.getElementById('photo-flux');
         const statut = document.getElementById('statut');
 
-        // Le PC écoute la base de données
+        // Permet de débloquer le navigateur si besoin lors d'un clic sur l'écran du PC
+        document.body.addEventListener('click', () => {
+            if(statut.innerText.includes("Prêt")) {
+                statut.innerText = "Écran PC : Débloqué. En attente du signal du téléphone...";
+            }
+        });
+
+        // Le PC écoute la base en temps réel
         base.on('value', (snapshot) => {
             const donnees = snapshot.val();
             if (!donnees) return;
 
             if (donnees.commande === "filme" && donnees.fluxData) {
-                statut.innerText = "🔴 En direct depuis ton téléphone !";
-                // On affiche la photo/image envoyée en continu par le téléphone
-                videoElem.style.display = "none"; // On va tricher avec une image en continu si la vidéo pure coupe
-                
-                // Si c'est une image de caméra en continu (Base64)
-                let img = document.getElementById('photo-flux');
-                if (!img) {
-                    img = document.createElement('img');
-                    img.id = 'photo-flux';
-                    img.style.width = "90%";
-                    img.style.maxWidth = "640px";
-                    img.style.borderRadius = "12px";
-                    document.body.insertBefore(img, statut);
-                }
-                img.src = donnees.fluxData;
+                statut.innerText = "🔴 EN DIRECT DEPUIS TON TÉLÉPHONE !";
+                // Met à jour l'image en direct avec les données reçues du téléphone
+                imgElem.src = donnees.fluxData;
             }
         });
     </script>
