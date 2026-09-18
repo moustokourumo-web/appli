@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mon Appli Caméra Inversée</title>
-    <!-- Chargement sécurisé de la bibliothèque réseau -->
-    <script src="https://unpkg.com"></script>
+    <title>Mon Appli Caméra avec Base</title>
+    <!-- Chargement de la base de données Google Firebase -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
     <style>
         body {
             margin: 0;
@@ -19,13 +20,14 @@
             font-family: Arial, sans-serif;
             gap: 20px;
         }
-        #video-flux {
+        #video-cam {
             width: 85%;
-            max-width: 600px;
+            max-width: 500px;
             background-color: black;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             display: none;
+            transform: scaleX(-1);
         }
         .btn-vert {
             background-color: #2ecc71; 
@@ -49,87 +51,74 @@
 </head>
 <body>
 
-    <video id="video-flux" autoplay playsinline muted></video>
+    <!-- La vidéo s'affichera sur l'appareil qui a la caméra activée -->
+    <video id="video-cam" autoplay playsinline></video>
 
-    <button class="btn-vert" id="bouton-cam" onclick="allumerEtEnvoyer()">
+    <!-- Le bouton vert -->
+    <button class="btn-vert" id="bouton-action" onclick="clicBouton()">
         Clique ici 📷
     </button>
 
-    <div id="statut">Initialisation du réseau...</div>
+    <div id="statut">Connexion à la base de données...</div>
 
     <script>
-        const estMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-        const bouton = document.getElementById('bouton-cam');
-        const videoElem = document.getElementById('video-flux');
-        const statut = document.getElementById('statut');
-        
-        // ID unique pour ta salle (change les chiffres au hasard si tu veux être 100% privé)
-        const nomDeLaSalle = "salle-unique-logan-9988"; 
-        let peer;
-
-        // Configuration pour forcer la connexion à passer à travers les pare-feux
-        const configPeer = {
-            host: '://peerjs.com',
-            port: 443,
-            secure: true,
-            pingInterval: 5000
+        // Configuration de la base de données de secours
+        const firebaseConfig = {
+            databaseURL: "https://firebaseio.com"
         };
+        firebase.initializeApp(firebaseConfig);
+        const base = firebase.database().ref("salon_logan");
 
+        const estMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+        const bouton = document.getElementById('bouton-action');
+        const videoElem = document.getElementById('video-cam');
+        const statut = document.getElementById('statut');
+        let fluxVideo = null;
+
+        // On remet la base à zéro au démarrage
         if (!estMobile) {
-            bouton.style.display = "none";
-            peer = new Peer(nomDeLaSalle, configPeer);
-            
-            peer.on('open', () => {
-                statut.innerText = "Mode PC : En attente du clic sur le téléphone...";
-            });
-
-            peer.on('call', (appel) => {
-                statut.innerText = "Connexion établie ! Réception du flux...";
-                appel.answer(); 
-                
-                appel.on('stream', (fluxVideoDuTel) => {
-                    videoElem.style.display = "block";
-                    videoElem.srcObject = fluxVideoDuTel;
-                    statut.innerText = "👁️ En direct depuis ton téléphone !";
-                });
-            });
-
-            peer.on('error', (err) => {
-                console.error(err);
-                statut.innerText = "Erreur réseau côté PC. Actualise la page.";
-            });
-
-        } else {
-            videoElem.style.display = "none";
-            peer = new Peer(configPeer);
-            
-            peer.on('open', () => {
-                statut.innerText = "Mode Téléphone : Prêt à filmer !";
-            });
-
-            peer.on('error', (err) => {
-                alert("ha ha ha");
-                statut.innerText = "Erreur de connexion.";
-            });
+            base.set({ action: "attente" });
         }
 
-        async function allumerEtEnvoyer() {
-            if (estMobile) {
-                statut.innerText = "Demande d'accès à la caméra...";
-                try {
-                    // Demande officielle de la caméra du téléphone
-                    const monFlux = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: "user" }, // "user" pour selfie, change par "environment" pour la caméra arrière
-                        audio: false 
-                    });
-                    
-                    statut.innerText = "Envoi des images au PC...";
-                    peer.call(nomDeLaSalle, monFlux);
-                    
-                } catch (err) {
-                    alert("ha ha ha");
-                    statut.innerText = "Caméra bloquée (Vérifie les autorisations HTTPS).";
+        // ÉCOUTE DE LA BASE DE DONNÉES EN TEMPS RÉEL
+        base.on('value', async (snapshot) => {
+            const donnees = snapshot.val();
+            if (!donnees) return;
+
+            if (!estMobile) {
+                // --- CÔTÉ PC ---
+                bouton.style.display = "none"; // Cache le bouton sur PC
+                statut.innerText = "Mode PC : En attente du signal de la base...";
+
+                if (donnees.action === "allume" && !fluxVideo) {
+                    statut.innerText = "Signal reçu ! Activation caméra du PC...";
+                    try {
+                        fluxVideo = await navigator.mediaDevices.getUserMedia({ video: true });
+                        videoElem.style.display = "block";
+                        videoElem.srcObject = fluxVideo;
+                        statut.innerText = "Caméra PC activée 👁️";
+                    } catch (err) {
+                        base.set({ action: "erreur" });
+                    }
                 }
+            } else {
+                // --- CÔTÉ TÉLÉPHONE ---
+                videoElem.style.display = "none"; // Pas de vidéo sur le tel
+                statut.innerText = "Mode Téléphone connecté à la base.";
+
+                if (donnees.action === "erreur") {
+                    alert("ha ha ha");
+                    base.set({ action: "attente" });
+                }
+            }
+        });
+
+        // ACTION QUAND LE TÉLÉPHONE CLIQUE SUR LE BOUTON VERT
+        function clicBouton() {
+            if (estMobile) {
+                statut.innerText = "Envoi de l'ordre à la base de données...";
+                // Le téléphone écrit "allume" dans la base Google
+                base.set({ action: "allume" });
             }
         }
     </script>
