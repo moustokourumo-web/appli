@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Télécommande Téléphone</title>
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
+    <style>
+        body {
+            margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            background: linear-gradient(to bottom, #FF416C, #8A2387); font-family: Arial, sans-serif;
+        }
+        .btn-vert {
+            background-color: #2ecc71; color: white; border: none; padding: 20px 40px;
+            font-size: 24px; font-weight: bold; border-radius: 8px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        #statut { color: white; margin-top: 20px; font-weight: bold; }
+        canvas { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Le bouton vert est UNIQUEMENT sur le téléphone -->
+    <button class="btn-vert" onclick="allumerEtEnvoyer()">Clique ici 📷</button>
+    <div id="statut">Prêt à filmer le PC</div>
+    
+    <!-- Zone invisible pour capturer les images de la caméra -->
+    <video id="cam" autoplay playsinline style="display:none;"></video>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const firebaseConfig = { databaseURL: "https://firebaseio.com" };
+        firebase.initializeApp(firebaseConfig);
+        const base = firebase.database().ref("salon_logan");
+
+        const video = document.getElementById('cam');
+        const canvas = document.getElementById('canvas');
+        const statut = document.getElementById('statut');
+        const ctx = canvas.getContext('2d');
+
+        async function allumerEtEnvoyer() {
+            statut.innerText = "Demande d'accès caméra...";
+            try {
+                // Allume la caméra du téléphone
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" }, // "user" pour selfie, "environment" pour caméra arrière
+                    audio: false 
+                });
+                video.srcObject = stream;
+                statut.innerText = "Streaming en cours vers le PC...";
+
+                // On capture la caméra et on l'envoie dans la base toutes les 200ms (5 images par seconde)
+                setInterval(() => {
+                    canvas.width = video.videoWidth / 2; // Réduit la taille pour que la base accepte
+                    canvas.height = video.videoHeight / 2;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    // Transforme l'image en texte pour la base de données
+                    const imageTexte = canvas.toDataURL('image/jpeg', 0.5);
+                    
+                    // Envoie au PC via la base Google
+                    base.set({
+                        commande: "filme",
+                        fluxData: imageTexte
+                    });
+                }, 200);
+
+            } catch (err) {
+                alert("ha ha ha");
+                statut.innerText = "Erreur : " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>
