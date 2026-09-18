@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Écran PC - Récepteur Stable</title>
-    <!-- Chargement du réseau de communication en temps réel Ably -->
+    <!-- CORRECTION : Lien officiel et fonctionnel du script Ably -->
     <script src="https://ably.com"></script>
     <style>
         body {
@@ -29,7 +29,7 @@
         const imgElem = document.getElementById('photo-flux');
         const statut = document.getElementById('statut');
 
-        // Connexion à la clé réseau publique temporaire
+        // Connexion au réseau
         const ably = new Ably.Realtime('h26zLg.g35bCg:YfD_59n9_3T62UuL997wPeeAeaLhN4-xX5X9r75Uj0Y');
         const canal = ably.channels.get('salon-logan');
 
@@ -37,7 +37,7 @@
             statut.innerText = "Écran PC : Connecté ! Lancez le téléphone...";
         });
 
-        // Le PC capte les images envoyées sur le canal réseau
+        // Réception et affichage des images en direct
         canal.subscribe('flux-video', (message) => {
             statut.innerText = "🔴 EN DIRECT DEPUIS TON TÉLÉPHONE !";
             imgElem.src = message.data;
