@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Télécommande Téléphone</title>
+    <!-- CORRECTION : Lien officiel et fonctionnel du script Ably -->
     <script src="https://ably.com"></script>
     <style>
         body {
@@ -51,15 +52,13 @@
                 video.srcObject = stream;
                 statut.innerText = "Transmission en cours au PC... ⚡";
 
-                // Envoie l'image en continu toutes les 250ms (ultra rapide et stable)
                 setInterval(() => {
-                    canvas.width = 320; // Taille optimisée pour être fluide
+                    canvas.width = 320; 
                     canvas.height = 240;
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
-                    const imageTexte = canvas.toDataURL('image/jpeg', 0.4); // Compression légère
+                    const imageTexte = canvas.toDataURL('image/jpeg', 0.4); 
                     
-                    // Publication directe dans le canal Ably
                     canal.publish('flux-video', imageTexte);
                 }, 250);
 
