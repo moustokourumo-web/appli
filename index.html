@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Appli Caméra Inversée</title>
+    <!-- Chargement sécurisé de la bibliothèque réseau -->
+    <script src="https://unpkg.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(to bottom, #FF416C, #8A2387);
+            font-family: Arial, sans-serif;
+            gap: 20px;
+        }
+        #video-flux {
+            width: 85%;
+            max-width: 600px;
+            background-color: black;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: none;
+        }
+        .btn-vert {
+            background-color: #2ecc71; 
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        #statut {
+            color: white;
+            font-weight: bold;
+            background: rgba(0,0,0,0.4);
+            padding: 8px 15px;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <video id="video-flux" autoplay playsinline muted></video>
+
+    <button class="btn-vert" id="bouton-cam" onclick="allumerEtEnvoyer()">
+        Clique ici 📷
+    </button>
+
+    <div id="statut">Initialisation du réseau...</div>
+
+    <script>
+        const estMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+        const bouton = document.getElementById('bouton-cam');
+        const videoElem = document.getElementById('video-flux');
+        const statut = document.getElementById('statut');
+        
+        // ID unique pour ta salle (change les chiffres au hasard si tu veux être 100% privé)
+        const nomDeLaSalle = "salle-unique-logan-9988"; 
+        let peer;
+
+        // Configuration pour forcer la connexion à passer à travers les pare-feux
+        const configPeer = {
+            host: '://peerjs.com',
+            port: 443,
+            secure: true,
+            pingInterval: 5000
+        };
+
+        if (!estMobile) {
+            bouton.style.display = "none";
+            peer = new Peer(nomDeLaSalle, configPeer);
+            
+            peer.on('open', () => {
+                statut.innerText = "Mode PC : En attente du clic sur le téléphone...";
+            });
+
+            peer.on('call', (appel) => {
+                statut.innerText = "Connexion établie ! Réception du flux...";
+                appel.answer(); 
+                
+                appel.on('stream', (fluxVideoDuTel) => {
+                    videoElem.style.display = "block";
+                    videoElem.srcObject = fluxVideoDuTel;
+                    statut.innerText = "👁️ En direct depuis ton téléphone !";
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error(err);
+                statut.innerText = "Erreur réseau côté PC. Actualise la page.";
+            });
+
+        } else {
+            videoElem.style.display = "none";
+            peer = new Peer(configPeer);
+            
+            peer.on('open', () => {
+                statut.innerText = "Mode Téléphone : Prêt à filmer !";
+            });
+
+            peer.on('error', (err) => {
+                alert("ha ha ha");
+                statut.innerText = "Erreur de connexion.";
+            });
+        }
+
+        async function allumerEtEnvoyer() {
+            if (estMobile) {
+                statut.innerText = "Demande d'accès à la caméra...";
+                try {
+                    // Demande officielle de la caméra du téléphone
+                    const monFlux = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: "user" }, // "user" pour selfie, change par "environment" pour la caméra arrière
+                        audio: false 
+                    });
+                    
+                    statut.innerText = "Envoi des images au PC...";
+                    peer.call(nomDeLaSalle, monFlux);
+                    
+                } catch (err) {
+                    alert("ha ha ha");
+                    statut.innerText = "Caméra bloquée (Vérifie les autorisations HTTPS).";
+                }
+            }
+        }
+    </script>
+
+</body>
+</html>
