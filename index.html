@@ -3,60 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Écran PC - Récepteur</title>
-    <script src="https://gstatic.com"></script>
-    <script src="https://gstatic.com"></script>
+    <title>Écran PC - Récepteur Stable</title>
+    <!-- Chargement du réseau de communication en temps réel Ably -->
+    <script src="https://ably.com"></script>
     <style>
         body {
             margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column;
             justify-content: center; align-items: center;
             background: linear-gradient(to bottom, #FF416C, #8A2387); font-family: Arial, sans-serif;
         }
-        /* Style de la zone d'affichage de la caméra */
         #photo-flux {
             width: 90%; max-width: 640px; height: auto; min-height: 360px;
             background-color: black; border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            display: block;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: block;
         }
         #statut { color: white; font-weight: bold; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 20px; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <!-- On utilise directement une zone d'image pour recevoir le flux sans blocage du navigateur -->
     <img id="photo-flux" src="" alt="En attente du flux vidéo...">
-    
-    <div id="statut">Écran PC : Prêt. Cliquez n'importe où sur cet écran, puis lancez le téléphone...</div>
+    <div id="statut">Écran PC : Connexion au réseau stable en cours...</div>
 
     <script>
-        const firebaseConfig = { databaseURL: "https://firebaseio.com" };
-        firebase.initializeApp(firebaseConfig);
-        const base = firebase.database().ref("salon_logan");
-
-        // Nettoyage de la base au démarrage du PC
-        base.set({ commande: "attente", fluxData: "" });
-
         const imgElem = document.getElementById('photo-flux');
         const statut = document.getElementById('statut');
 
-        // Permet de débloquer le navigateur si besoin lors d'un clic sur l'écran du PC
-        document.body.addEventListener('click', () => {
-            if(statut.innerText.includes("Prêt")) {
-                statut.innerText = "Écran PC : Débloqué. En attente du signal du téléphone...";
-            }
+        // Connexion à la clé réseau publique temporaire
+        const ably = new Ably.Realtime('h26zLg.g35bCg:YfD_59n9_3T62UuL997wPeeAeaLhN4-xX5X9r75Uj0Y');
+        const canal = ably.channels.get('salon-logan');
+
+        ably.connection.on('connected', () => {
+            statut.innerText = "Écran PC : Connecté ! Lancez le téléphone...";
         });
 
-        // Le PC écoute la base en temps réel
-        base.on('value', (snapshot) => {
-            const donnees = snapshot.val();
-            if (!donnees) return;
-
-            if (donnees.commande === "filme" && donnees.fluxData) {
-                statut.innerText = "🔴 EN DIRECT DEPUIS TON TÉLÉPHONE !";
-                // Met à jour l'image en direct avec les données reçues du téléphone
-                imgElem.src = donnees.fluxData;
-            }
+        // Le PC capte les images envoyées sur le canal réseau
+        canal.subscribe('flux-video', (message) => {
+            statut.innerText = "🔴 EN DIRECT DEPUIS TON TÉLÉPHONE !";
+            imgElem.src = message.data;
         });
     </script>
 </body>
